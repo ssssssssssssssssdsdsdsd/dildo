@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Сложный SPA с логином</title>
+<style>
+:root {
+  --bg:#0f172a; --text:#e5e7eb; --accent:#38bdf8; --card:#1e293b;
+}
+body.light { --bg:#f8fafc; --text:#020617; --card:#e5e7eb; }
+body { margin:0; font-family:system-ui; background:var(--bg); color:var(--text); transition:.3s; }
+header { display:flex; justify-content:space-between; padding:16px 32px; background:var(--card); }
+nav a { color:var(--text); margin-right:16px; text-decoration:none; font-weight:bold; }
+button { background:var(--accent); border:none; padding:8px 14px; border-radius:6px; cursor:pointer; color:black; }
+.hero { padding:60px 20px; text-align:center; }
+.cards { display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:20px; padding:40px; }
+.card { background:var(--card); padding:20px; border-radius:12px; transition:transform .3s; }
+.card:hover { transform:translateY(-8px); }
+.tabs { display:flex; gap:10px; justify-content:center; margin-bottom:20px; }
+.tab { padding:10px 20px; background:var(--card); cursor:pointer; }
+.tab.active { background:var(--accent); color:black; }
+.modal { position:fixed; inset:0; background:rgba(0,0,0,.6); display:none; align-items:center; justify-content:center; }
+.modal-content { background:var(--card); padding:30px; border-radius:12px; max-width:400px; }
+input { padding:8px; width:100%; margin:6px 0; border-radius:6px; border:1px solid #ccc; }
+body.light .card { background:#ddd; color:#000; }
+</style>
+</head>
+<body>
+
+<header>
+  <nav>
+    <a href="#/home">Головна</a>
+    <a href="#/dashboard">Панель</a>
+    <a href="#/settings">Налаштування</a>
+  </nav>
+  <div>
+    <button onclick="toggleTheme()">🌗 Тема</button>
+    <button onclick="logout()">Вийти</button>
+  </div>
+</header>
+
+<div id="app"></div>
+
+<!-- Модалка -->
+<div class="modal" id="modal">
+  <div class="modal-content">
+    <h2>Модальне вікно</h2>
+    <p>Це модалка на складному сайті.</p>
+    <button onclick="closeModal()">Закрити</button>
+  </div>
+</div>
+
+<script>
+/* ===== STATE ===== */
+const store = {
+  user: JSON.parse(localStorage.getItem('user')) || null,
+  theme: localStorage.getItem('theme') || 'dark'
+};
+if(store.theme==='light') document.body.classList.add('light');
+
+/* ===== THEME ===== */
+function toggleTheme() {
+  document.body.classList.toggle('light');
+  store.theme = document.body.classList.contains('light') ? 'light' : 'dark';
+  localStorage.setItem('theme', store.theme);
+}
+
+/* ===== MODAL ===== */
+function openModal() { document.getElementById('modal').style.display='flex'; }
+function closeModal() { document.getElementById('modal').style.display='none'; }
+
+/* ===== COMPONENTS ===== */
+function Home() {
+  return `
+  <section class="hero">
+    <h1>Складний HTML-сайт</h1>
+    <p>Без фреймворків. Чистий код.</p>
+    <button onclick="openModal()">Відкрити модалку</button>
+  </section>
+
+  <div class="tabs">
+    <div class="tab active" onclick="filterCards('all', event)">Усі</div>
+    <div class="tab" onclick="filterCards('web', event)">Web</div>
+    <div class="tab" onclick="filterCards('app', event)">App</div>
+  </div>
+
+  <section class="cards">
+    <div class="card web"><h3>Сайт</h3><p>HTML + CSS</p></div>
+    <div class="card app"><h3>Додаток</h3><p>JavaScript логіка</p></div>
+    <div class="card web"><h3>Лендінг</h3><p>Адаптив</p></div>
+  </section>`;
+}
+
+function Dashboard() {
+  return `<div class="card">
+    <h1>📊 Панель</h1>
+    <p>Привіт, <b>${store.user.name}</b>!</p>
+    <ul>${Array.from({length:5},(_,i)=>`<li>Завдання ${i+1}</li>`).join('')}</ul>
+  </div>`;
+}
+
+function Settings() {
+  return `<div class="card">
+    <h1>⚙️ Налаштування</h1>
+    <button onclick="toggleTheme()">Перемкнути тему</button>
+  </div>`;
+}
+
+function Login() {
+  return `<div class="card">
+    <h1>🔐 Вхід</h1>
+    <input id="name" placeholder="Введи ім'я">
+    <button onclick="login()">Увійти</button>
+  </div>`;
+}
+
+/* ===== ROUTES ===== */
+const routes = {
+  '/home': Home,
+  '/dashboard': Dashboard,
+  '/settings': Settings,
+  '/login': Login
+};
+
+/* ===== RENDER ===== */
+function render() {
+  const app = document.getElementById('app');
+  let path = location.hash.slice(1) || '/home';
+  if(!store.user && path!=='/login') path='/login';
+  const page = routes[path] || Home;
+  app.innerHTML = page();
+}
+
+/* ===== LOGIC ===== */
+function login() {
+  const name = document.getElementById('name').value;
+  if(!name) return alert('Введи імʼя');
+  store.user = { name };
+  localStorage.setItem('user', JSON.stringify(store.user));
+  location.hash='/dashboard';
+  render();
+}
+
+function logout() {
+  localStorage.removeItem('user');
+  store.user=null;
+  location.hash='/login';
+  render();
+}
+
+/* ===== FILTER CARDS ===== */
+function filterCards(type, e) {
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  e.target.classList.add('active');
+  document.querySelectorAll('.card').forEach(card=>{
+    card.style.display=(type==='all'||card.classList.contains(type))?'block':'none';
+  });
+}
+
+/* ===== EVENTS ===== */
+window.addEventListener('hashchange', render);
+window.addEventListener('load', render);
+</script>
+
+</body>
+</html>
